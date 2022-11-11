@@ -1,4 +1,5 @@
 #!/bin/bash
+# 引入一些全局的path
 
 TOPDIR="/users/hcli/proj/run"
 
@@ -12,4 +13,4 @@ RUNDIR="${TOPDIR}"
 MEMEATER="$RUNDIR/memeater"
 
 TIME_FORMAT="\n\n\nReal: %e %E\nUser: %U\nSys: %S\nCmdline: %C\nAvg-total-Mem-kb: %K\nMax-RSS-kb: %M\nSys-pgsize-kb: %Z\nNr-voluntary-context-switches: %w\nCmd-exit-status: %x"
-[[ ! -e /usr/bin/time ]] && echo "===> Please install GNU time first!" && exit
+[[ ! -e /usr/bin/time ]] && echo "===> Please install GNU time first!" && exit #如果/usr/bin/time不存在，就exit

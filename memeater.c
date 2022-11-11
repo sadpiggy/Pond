@@ -7,6 +7,7 @@
 
 #define NODE_MEM_SYS_RSV_SZMB (0)
 
+//eat掉参数指定的内存
 int main(int argc, char **argv)
 {
     uint64_t szmb;

@@ -9,6 +9,7 @@ source /users/hcli/proj/run/run-globals.sh
 
 #-------------------------------------------------------------------------------
 
+# 得到系统基本信息
 get_sysinfo()
 {
     uname -a
@@ -20,9 +21,13 @@ get_sysinfo()
     cat /proc/meminfo
 }
 
+#将3输入到/proc/sys/vm/drop_caches中
+#如果 sudo cat /proc/sys/vm/srop_caches会显示permission denied
+#如果echo 3 > drop_caches也会permission denied
+#如果使用这里的方法，就能够写入，这是为什么呢？
 flush_fs_caches()
 {
-    echo 3 | sudo tee /proc/sys/vm/drop_caches >/dev/null 2>&1
+    echo 3 | sudo tee /proc/sys/vm/drop_caches >/dev/null 2>&1 
     sleep 10
 }
 
@@ -78,6 +83,7 @@ disable_ht()
 
 disable_node1_cpus()
 {
+    #能否在node online那个文件里面批量操作呢？
     echo 0 | sudo tee /sys/devices/system/node/node1/cpu*/online >/dev/null 2>&1
 }
 
@@ -88,8 +94,10 @@ bring_all_cpus_online()
 
 set_performance_mode()
 {
-    #echo "  ===> Placing CPUs in performance mode ..."
-    for governor in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+    #echo "  ===> Placing CPUs in performance mode ..." 
+    #我铸币了，这里的performance不是变量，引用变量的值需要$performance
+    #默认这个scaling_governor是powersave状态
+    for governor in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do #经典压行
         echo performance | sudo tee $governor >/dev/null 2>&1
     done
 }
@@ -99,19 +107,22 @@ disable_node1_mem()
     echo 0 | sudo tee /sys/devices/system/node/node1/memory*/online >/dev/null 2>&1
 }
 
+## 启动pmqos，作用为禁用dvfs等，来达到最低的延迟（如果基准没有这样，那就是作弊了
 check_pmqos()
 {
-    local pmqospid=$(ps -ef | grep pmqos | grep -v grep | grep -v sudo | awk '{print $2}')
-    #echo $pmqospid
+    local pmqospid=$(ps -ef | grep pmqos | grep -v grep | grep -v sudo | awk '{print $2}') #输出第二列，也就是pid
+    #echo $pmqospid # echo debug大法好 >.<
+    #local变量，作用域在函数之中
 
     set_performance_mode
-    [[ -n "$pmqospid" ]] && return
+    [[ -n "$pmqospid" ]] && return #不为0返回true，也就是如果$pmqospig存在，就return
 
+    #nohup启动pmqos，
     sudo nohup ${TOPDIR}/pmqos >/dev/null 2>&1 &
     sleep 3
     # double check
     pmqospid=$(ps -ef | grep pmqos | grep -v grep | grep -v sudo | awk '{print $2}')
-    if [[ -z "$pmqospid" ]]; then
+    if [[ -z "$pmqospid" ]]; then # 为0返回true，检查是否启动了pmqospid ##这里为什么不用上面的格式的命令来压行呢？
         echo "==> Error: failed to start pmqos!!!!"
         exit
     fi
@@ -120,6 +131,9 @@ check_pmqos()
 # Keep all cores on Node 0 online while keeping all cores on Node 1 offline
 configure_cxl_exp_cores()
 {
+    # 我这里的单独的cpu里面没有online，但是有全局的online 0-63
+    # tee会创建不存在的文件
+    #实验过了，使用下面这个命令，可以创建online文件，并且下线或者上线cpu，只是cpu0不能被下线
     # To be safe, let's bring all the cores online first
     echo 1 | sudo tee /sys/devices/system/cpu/cpu*/online >/dev/null 2>&1
 
@@ -127,12 +141,14 @@ configure_cxl_exp_cores()
     echo 0 | sudo tee /sys/devices/system/node/node1/cpu*/online >/dev/null 2>&1
 }
 
+## 这段代码应该是有bug的吧
+## 因为cpu/里面的cpu文件的个数为逻辑核的数量，而下面的cores_pre_socket是物理核的数量，后者是前者的一半，所以这样只禁用了四分之一的cpu
 configure_base_exp_cores()
 {
     # To be safe, let's bring all the cores online first
     echo 1 | sudo tee /sys/devices/system/cpu/cpu*/online >/dev/null 2>&1
-    # Leave half of the cores online for both Node 0 and Node 1
-	local cores_per_socket=$(lscpu | grep -i 'Core(s) per socket' | awk '{print $4}')
+    # Leave half of the cores online for both Node 0 and Node 1   #可能是做不到的
+	local cores_per_socket=$(lscpu | grep -i 'Core(s) per socket' | awk '{print $4}') # 每个socket里面的core数量（所以这个架构里面，socket里的core数量是相同的？
     local half_cores_per_socket=$((cores_per_socket / 2))
     local total_cores=$((cores_per_socket * 2))
     for ((i = half_cores_per_socket; i < cores_per_socket; i++)); do
@@ -144,6 +160,8 @@ configure_base_exp_cores()
     done
 }
 
+##check
+##为什么check要disable呢？特征：configure_base_exp_cores（下线一半core（其实是四分之一cpu
 check_base_conf()
 {
     disable_nmi_watchdog
@@ -159,7 +177,7 @@ check_base_conf()
 
     nc=$(sudo numactl --hardware | grep 'node 1 cpus' | awk -F: '{print $2}')
 
-    # Everything looks correct
+    # Everything looks correct #如果node1里面还有cpu，就return
     [[ ! -z $nc ]] && return
 
     # Bummer, let's try bring the cores on Node 1 up...
@@ -175,6 +193,8 @@ check_base_conf()
     sleep 60
 }
 
+##check
+##为什么check要disable呢？特征：configure_cxl_exp_cores下线node1cpu，上线node0cpu
 check_cxl_conf()
 {
     disable_nmi_watchdog
@@ -191,6 +211,7 @@ check_cxl_conf()
     nc=$(sudo numactl --hardware | grep 'node 1 cpus' | awk -F: '{print $2}')
 
     # Everything looks correct
+    # 为空，说明下线成功，return
     [[ -z $nc ]] && return
 
     # Bummer, for CXL-emulation, let's take the cores on Node 1 offline...
@@ -206,6 +227,8 @@ check_cxl_conf()
     sleep 60
 }
 
+#reset为什么要disable呢？奇怪奇怪
+##还有，disable的东西，什么时候enable呢？会自动enable吗？
 reset_base() {
     disable_nmi_watchdog
     disable_va_aslr
@@ -225,7 +248,7 @@ monitor_resource_util()
 {
     while true; do
         local o=$(sudo numactl --hardware)
-        local node0_free_mb=$(echo "$o" | grep "node 0 free" | awk '{print $4}')
+        local node0_free_mb=$(echo "$o" | grep "node 0 free" | awk '{print $4}') #free memory
 		local node1_free_mb=$(echo "$o" | grep "node 1 free" | awk '{print $4}')
         echo "$(date +"%D %H%M%S") ${node0_free_mb} ${node1_free_mb}"
         #pidstat -r -u -d -l -p ALL -U -h 5 100000000 > pidstat.log &
@@ -237,7 +260,7 @@ monitor_resource_util()
 #-------------------------------------------------------------------------------
 # For Emon Run
 #-------------------------------------------------------------------------------
-
+## 按照readme，这部分是可选的，那就先不看吧
 # $1: CXL experiment type array, EXL_EXPARR, (pass array by name!)
 # $2: Base experiment type array
 # $3: Result directory
@@ -245,7 +268,7 @@ init_emon_profiling()
 {
     # Attention: we are passing array name, and need convert it into an internal
     # array format
-    local cxl_exparr_name=$1[@]
+    local cxl_exparr_name=$1[@] #首先，这个应该是错的；其次，我没有搞懂这方面
     local cxl_exparr=( "${!cxl_exparr_name}" )
     local base_exparr_name=$2[@]
     local base_exparr=( "${!base_exparr_name}" )
