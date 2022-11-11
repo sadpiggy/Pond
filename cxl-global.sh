@@ -5,7 +5,7 @@
 # Huaicheng Li <lhcwhu@gmail.com>
 #
 
-source /users/hcli/proj/run/run-globals.sh
+source /home/wangkunyun/Pond/run-globals.sh
 
 #-------------------------------------------------------------------------------
 
