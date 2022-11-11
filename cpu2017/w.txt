@@ -1,3 +1,4 @@
+testBench 202
 500.perlbench_r 202
 502.gcc_r 1280
 503.bwaves_r 822

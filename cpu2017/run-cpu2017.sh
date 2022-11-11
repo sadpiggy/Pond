@@ -7,7 +7,7 @@
 
 # Change the following global variables based on your environment
 #-------------------------------------------------------------------------------
-EMON="/opt/intel/oneapi/vtune/2021.1.2/bin64/emon" # Emon path
+EMON="/opt/intel/oneapi/vtune/2021.5.0/bin64/emon" # Emon path
 RUNDIR="~/Pond" # top dir of this repo 为什么不直接source cxl-globols.sh呢，这样就有top了啊
 
 # Output folder
@@ -40,17 +40,17 @@ WF=$1
 WID=$2
 
 if [[ $# == 1 ]]; then
-    warr=($(cat $WF | awk '{print $1}'))
+    warr=($(cat $WF | awk '{print $1}')) #cat w.txt
     marr=($(cat $WF | awk '{print $2}'))
 elif [[ $# == 2 ]]; then
-    warr=($(cat w.txt | awk -vline=$WID 'NR == line {print $1}'))
-    marr=($(cat w.txt | awk -vline=$WID 'NR == line {print $2}'))
+    warr=($(cat w.txt | awk -vline=$WID 'NR == line {print $1}')) #得到第WID行，第一列也就是work
+    marr=($(cat w.txt | awk -vline=$WID 'NR == line {print $2}')) #相应的memory峰值消耗
 fi
 
 echo "==> Result directory: $RSTDIR"
 
 
-# Suppose the host server has 2 nodes, [Node 1: 8c/32g + Node 2: 8c/32g]
+# Suppose the host server has 2 nodes, [Node 1: 8c/32g + Node 2: 8c/32g] ,our machine [16core/128g]
 # (1).
 # Emulated CXL-memory cases
 # (N1:8c/32g + N2:0c/32g)
@@ -62,6 +62,7 @@ echo "==> Result directory: $RSTDIR"
 # NUMA baseline cases
 # (N1:8c/32g + N2:8c/32g)
 # "Interleave" -> round robin memory allocation across NUMA nodes
+# 这是啥？？？todo TODO TODO
 
 
 # Global emualtion environment setup
