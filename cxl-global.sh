@@ -120,6 +120,10 @@ check_pmqos()
     #nohup启动pmqos，
     sudo nohup ${TOPDIR}/pmqos >/dev/null 2>&1 &
     sleep 3
+
+    echo "------------------debug------------------"
+    ps -ef | grep pmqos
+
     # double check
     pmqospid=$(ps -ef | grep pmqos | grep -v grep | grep -v sudo | awk '{print $2}')
     if [[ -z "$pmqospid" ]]; then # 为0返回true，检查是否启动了pmqospid ##这里为什么不用上面的格式的命令来压行呢？
